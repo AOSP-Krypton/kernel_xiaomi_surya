@@ -14,6 +14,7 @@
 #define ANY_ID (~0)
 
 static const struct adreno_gpu_core adreno_gpulist[] = {
+#if 0
 	{
 		.gpurev = ADRENO_REV_A306,
 		.core = 3,
@@ -335,6 +336,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 	},
+#endif
 	{
 		.gpurev = ADRENO_REV_A630,
 		.core = 6,
@@ -513,7 +515,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0xFFFFFFFE,
 		.cx_ipeak_gpu_freq = 900000000,
 	},
-#endif
 	{
 		.gpurev = ADRENO_REV_A618,
 		.core = 6,
