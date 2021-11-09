@@ -5615,7 +5615,7 @@ void ipa3_inc_acquire_wakelock(void)
 	spin_lock_irqsave(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
 	ipa3_ctx->wakelock_ref_cnt.cnt++;
 	if (ipa3_ctx->wakelock_ref_cnt.cnt == 1)
-		__pm_stay_awake(&ipa3_ctx->w_lock);
+		__pm_wakeup_event(&ipa3_ctx->w_lock, 500);
 	IPADBG_LOW("active wakelock ref cnt = %d\n",
 		ipa3_ctx->wakelock_ref_cnt.cnt);
 	spin_unlock_irqrestore(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
