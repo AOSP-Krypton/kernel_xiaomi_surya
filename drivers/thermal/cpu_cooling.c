@@ -333,6 +333,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	 */
 	if (policy->max > clipped_freq || policy->min < floor_freq)
 		cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
@@ -733,6 +734,26 @@ update_frequency:
 	}
 
 	return 0;
+}
+
+void cpu_limits_set_level(unsigned int cpu, unsigned int requested)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	int i, target;
+
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+		if (cpufreq_cdev->id == cpu) {
+			for (i = 0; i < cpufreq_cdev->max_level; i++) {
+				target = cpufreq_cdev->freq_table[i].frequency;
+				if (requested >= target && cpufreq_cdev->cdev) {
+					cpufreq_set_cur_state(cpufreq_cdev->cdev, i);
+					break;
+				}
+			}
+
+			break;
+		}
+	}
 }
 
 /**
