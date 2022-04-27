@@ -1,0 +1,28 @@
+name: Build Kernel on Github Actions
+
+on:
+  push:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container:
+      image: panchajanya1999/archlinux:latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup env
+        run: pacman -Syu --needed --noconfirm wget base-devel xmlto inetutils bc cpio python-sphinx python-sphinx_rtd_theme graphviz imagemagick git python2 python zip github-cli
+      - name: Build Stratosphere Kernel
+        run: |
+          export TOKEN=${AUTH_TOKEN}
+          export TGKEN=${TELEGRAM_TOKEN}
+          bash ci-build.sh
+        env:
+          AUTH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TG_TOKEN }}
+      - name: Store Kernel Package as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+         name: Flashable zip
+         path: AnyKernel3/package.zip
