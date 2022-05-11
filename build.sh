@@ -1,13 +1,6 @@
 #!/bin/bash
-# 
+# SPDX-License-Identifier: Apache-2.0
 # Odds and Ends for Android Kernel Building 
-# Copyright 2022 Karthik Sreedevan <taalojarvi@github.com>
-# Portions Copyright Aayush Gupta <TheImpulson@github.com>
-# Based on @TheImpulson's FireKernel Buildscript with a few additions and fixes of my own
-#
-# If you modify this script to suit  your needs, add your authorship info in the following format
-# Portions Copyight <YEAR> <NAME> <EMAIL>
-#
 export SECONDS=0
 export TZ=Etc/UTC
 BUILD_START=$(date +"%s")
@@ -42,7 +35,8 @@ BASE_DIR=$HOME
 KERNEL_DIR=$(pwd)
 ANYKERNEL_DIR=$BASE_DIR/AnyKernel3
 UPLOAD_DIR=$BASE_DIR/Stratosphere-Canaries
-TC_DIR=$BASE_DIR/azure-clang
+TC_DIR=$BASE_DIR/gcc-arm64
+TC_DIR_32=$BASE_DIR/gcc-arm
 LOG_DIR=$BASE_DIR/logs
 CONFIG_DIR=$BASE_DIR/configs
 
@@ -56,23 +50,25 @@ KERNEL_DTB=$OUTPUT/arch/arm64/boot/dts/qcom/sdmmagpie.dtb
 
 
 # Export Environment Variables. 
-export PATH="$TC_DIR/bin:$PATH"
-# export PATH="$TC_DIR/bin:$HOME/gcc-arm/bin${PATH}"
+# export PATH="$TC_DIR/bin:$PATH"
+export PATH="$TC_DIR/bin:$TC_DIR_32/bin${PATH}"
 export CLANG_TRIPLE=aarch64-linux-gnu-
 export ARCH=arm64
-# export CROSS_COMPILE=~/gcc-arm64/bin/aarch64-elf-
-# export CROSS_COMPILE_ARM32=~/gcc-arm/bin/arm-eabi-
-export CROSS_COMPILE=aarch64-linux-gnu-
-export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-export LD_LIBRARY_PATH=$TC_DIR/lib
+export CROSS_COMPILE=~/gcc-arm64/bin/aarch64-elf-
+export CROSS_COMPILE_ARM32=~/gcc-arm/bin/arm-eabi-
+# export CROSS_COMPILE=aarch64-linux-gnu-
+# export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+# export LD_LIBRARY_PATH=$TC_DIR/lib
 # Need not be edited.
 export KBUILD_BUILD_USER=$USER
 export KBUILD_BUILD_HOST=$(hostname)
 export USE_HOST_LEX=yes
 export USE_CCACHE=1
 export CCACHE_EXEC=$(command -v ccache)
+
+# Check if SMT is active and set job threads accordingly
 if [ "$(cat /sys/devices/system/cpu/smt/active)" = "1" ]; then
-		export THREADS=$(expr $(nproc --all) \* 2)
+		export THREADS=$(($(nproc --all) * 2))
 	else
 		export THREADS=$(nproc --all)
 	fi
@@ -186,7 +182,7 @@ function toggle_prefs {
 	printf "\n$yellow Awaiting User Input: $red"
 	read toggle
 	case $toggle in
-		1) if [ $PREFS_PACKAGING = true ]; then
+		1) if [ "$PREFS_PACKAGING" = true ]; then
 			sed -i "s/true/false/" "$CONFIG_DIR"/pref.packaging
 			export PREFS_PACKAGING=$(cat "$CONFIG_DIR"/pref.packaging)
 			sed -i "s/true/false/" "$CONFIG_DIR"/pref.release
@@ -197,7 +193,7 @@ function toggle_prefs {
 		   fi
 		   toggle_prefs
 		   ;;
-		2) if [ $PREFS_RAMDISK = true ]; then
+		2) if [ "$PREFS_RAMDISK" = true ]; then
 			sed -i "s/true/false/" "$CONFIG_DIR"/pref.ramdisk
 			export PREFS_RAMDISK=$(cat "$CONFIG_DIR"/pref.ramdisk)
 		   else
@@ -206,7 +202,7 @@ function toggle_prefs {
 		   fi
 		   toggle_prefs
 		   ;;
-		3) if [ $PREFS_UPDATEREPO = true ]; then
+		3) if [ "$PREFS_UPDATEREPO" = true ]; then
 			sed -i "s/true/false/" "$CONFIG_DIR"/pref.updaterepo
 			export PREFS_UPDATEREPO=$(cat "$CONFIG_DIR"/pref.updaterepo)
 		   else
@@ -215,7 +211,7 @@ function toggle_prefs {
 		   fi
 		   toggle_prefs
 		   ;;
-		4) if [ $PREFS_RELEASE = true ]; then
+		4) if [ "$PREFS_RELEASE" = true ]; then
 			sed -i "s/true/false/" "$CONFIG_DIR"/pref.release
 			export PREFS_RELEASE=$(cat "$CONFIG_DIR"/pref.release)
 		   else
@@ -227,7 +223,7 @@ function toggle_prefs {
 		   fi
 		   toggle_prefs
 		   ;;
-		5) if [ $PREFS_BUILDTYPE = clean ]; then
+		5) if [ "$PREFS_BUILDTYPE" = clean ]; then
 			sed -i "s/clean/dirty/" "$CONFIG_DIR"/pref.buildtype
 			export PREFS_BUILDTYPE=$(cat "$CONFIG_DIR"/pref.buildtype)
 		   else
@@ -333,9 +329,7 @@ function preflight() {
 	printf "\n"
 	
 	printf "$cyan Generating Hash for Buildscript $nocol\n"
-	rm "$CONFIG_DIR"/kscript.hash
-	touch "$CONFIG_DIR"/kscript.hash
-	md5sum $(pwd)/"$0" >> "$CONFIG_DIR"/kscript.hash
+	md5sum "$(pwd)/"$0"" > "$CONFIG_DIR"/kscript.hash
 }
 # Create Release Notes
 function make_releasenotes()  {
@@ -343,14 +337,9 @@ function make_releasenotes()  {
 	echo -e "#earlyaccess" > releasenotes.md
 	echo -e >> releasenotes.md
 	echo -e "This is an Early Access Build of "$KERNEL_NAME" Kernel. Flash at your own risk!" >> releasenotes.md
-	COMPILE_END=$(("$SECONDS"%3600/60))
-#	CDIFF=$(($COMPILE_END - $COMPILE_START))
-#	export COMPILE_END=$( "$(SECONDS)" % 3600)/60
-#	printf '%dh:%dm:%ds\n' $((SECONDS/3600)) $((SECONDS%3600/60)) $((SECONDS%60)) >> releasenotes.md
 	BUILD_END=$(date +"%s")
 	DIFF=$(($BUILD_END - $BUILD_START))
 	echo -e "Build completed after $((DIFF/60)) minute(s)" >> releasenotes.md
-# 	echo -e "Build completed after ""$COMPILE_END"" minutes on "$KBUILD_BUILD_HOST"" >>releasenotes.md
 	echo -e "Build Date: ""$TIMESTAMP" >> releasenotes.md
 	echo -e >> releasenotes.md
 	echo -e "Last 5 Commits before Build:-" >> releasenotes.md
@@ -361,16 +350,15 @@ function make_releasenotes()  {
 # Make defconfig
 function make_defconfig()  {
 	echo -e " "
-#	make $DEFCONFIG LD=aarch64-elf-ld.lld O=$OUTPUT 2>&1 | tee -a "$LOG_DIR"/"$LOG"
-	make $DEFCONFIG CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
+	make $DEFCONFIG LD=aarch64-elf-ld.lld O="$OUTPUT"
+#	make $DEFCONFIG CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
 }
 
 # Make Kernel
 function make_kernel  {
 	echo -e " "
-	COMPILE_START=$(date +"%s")
-#	make -j$THREADS LD=ld.lld O=$OUTPUT 2>&1 | tee -a "$LOG_DIR"/"$LOG"
-	make -j"$THREADS" CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT" 2>&1 | tee -a "$LOG_DIR"/"$LOG"
+	make -j"$THREADS" LD=ld.lld O="$OUTPUT"
+#	make -j"$THREADS" CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT" 2>&1 | tee -a "$LOG_DIR"/"$LOG"
 # Check if Image.gz-dtb exists. If not, stop executing.
 	if ! [ -a "$KERNEL_IMG" ];
  		then
@@ -385,36 +373,30 @@ function make_kernel  {
 function make_package()  {
 	printf "\n"
 	printf "\n$green Packaging Kernel! \n"
-	cp "$KERNEL_IMG" "$ANYKERNEL_DIR"
-	cp "$KERNEL_DTB" "$ANYKERNEL_DIR"/dtb
-	cp "$KERNEL_DTBO" "$ANYKERNEL_DIR"
-	cd "$ANYKERNEL_DIR"
+	cp "$KERNEL_IMG" "$ANYKERNEL_DIR" & cp "$KERNEL_DTB" "$ANYKERNEL_DIR"/dtb & cp "$KERNEL_DTBO" "$ANYKERNEL_DIR" && wait
+	cd "$ANYKERNEL_DIR" || exit
 	zip -r9 UPDATE-AnyKernel2.zip * -x README.md LICENSE UPDATE-AnyKernel2.zip zipsigner.jar
 	java -jar zipsigner.jar UPDATE-AnyKernel2.zip UPDATE-AnyKernel2-signed.zip
 	mv UPDATE-AnyKernel2-signed.zip "$FINAL_ZIP"
 	cp "$FINAL_ZIP" "$UPLOAD_DIR"
-	cd "$KERNEL_DIR"
+	cd "$KERNEL_DIR" || exit
 }
 
 # Upload Flashable Zip to GitHub Releases <3
 function release()  {
 	printf "\n"
 	printf "\n$red Releasing Kernel Package to Github! \n"
-	cd "$UPLOAD_DIR"
+	cd "$UPLOAD_DIR" || exit
 	gh release create "$RELEASE_TAG" "$FINAL_ZIP" -F releasenotes.md -p -t "$RELEASE_MSG"
-	cd "$KERNEL_DIR"
+	cd "$KERNEL_DIR" || exit
 }
 
 # Make Clean
 function make_cleanup()  {
-	echo -e "$DIVIDER"
-	echo -e "$cyan    Cleaning out build artifacts. Please wait       "
-	echo -e "$DIVIDER"
-	echo -e " "
-#	make clean LD=ld.lld O=$OUTPUT 2>&1 | tee -a "$LOG_DIR"/"$LOG"
-#	make mrproper LD=ld.lld O=$OUTPUT 2>&1 | tee -a "$LOG_DIR"/"$LOG"
-	make clean -j$THREADS CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT" 
-	make mrproper -j$THREADS CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
+	make clean LD=ld.lld O="$OUTPUT"
+	make mrproper LD=ld.lld O="$OUTPUT"
+#	make clean -j$THREADS CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT" 
+#	make mrproper -j$THREADS CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
 }
 
 # Check for Script Artifacts from previous builds
@@ -442,19 +424,23 @@ function artifact_check()  {
 # Update Toolchain Repository
 function update_repo()  {
 	echo -e " "
-	cd "$TC_DIR"
-	git pull origin --ff-only
-	cd "$ANYKERNEL_DIR"
-	git pull https://github.com/osm0sis/AnyKernel3 master
-	git push
-	cd "$KERNEL_DIR"
+	printf "\n$cyan Updating local repositories. Please wait\n$cyan"
+	if [ -d "$TC_DIR_32" ]; then
+		cd "$TC_DIR_32" && git pull origin --ff-only & cd "$TC_DIR" && git pull origin --ff-only & cd "$ANYKERNEL_DIR" && git pull https://github.com/osm0sis/AnyKernel3 master 
+		git push
+	else
+		cd "$TC_DIR" && git pull origin --ff-only & cd "$ANYKERNEL_DIR" && git pull https://github.com/osm0sis/AnyKernel3 master 
+		git push
+	fi
+	
+	cd "$KERNEL_DIR" || exit
 }
 
 # Open Menuconfig
 function make_menuconfig()  {
 	echo -e " "
-	make nconfig CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
-	# make menuconfig LD=ld.lld O=$OUTPUT 2>&1 | tee -a "$LOG_DIR"/"$LOG"
+#	make nconfig CC='ccache clang -Qunused-arguments -fcolor-diagnostics' LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O="$OUTPUT"
+	 make menuconfig LD=ld.lld O="$OUTPUT"
 }
 
 # Clear CCACHE
@@ -496,11 +482,15 @@ function menu()  {
 		   	printf "\n$red Skipping Repo Updation\n$cyan"
 		   fi
 		   if [ "$PREFS_BUILDTYPE" = "clean" ]; then
-		   	make_cleanup
+		   	echo -e "$DIVIDER"
+			echo -e "$cyan    Cleaning out build artifacts. Please wait       "
+			echo -e "$DIVIDER"
+			echo -e " "
+		   	make_cleanup & artifact_check && wait
 		   else
+		   	artifact_check
 		   	printf "\n$red Skipping Cleanup$cyan"
-		   fi
-		   artifact_check
+		   fi	   
 		   make_defconfig
 	 	   make_kernel
 	 	   if [ "$PREFS_RELEASE" = "true" ]; then
@@ -526,8 +516,7 @@ function menu()  {
 	 	   make_menuconfig
 	 	   menu
 	 	   ;;
-	 	3) make_cleanup
-	 	   artifact_check
+	 	3) make_cleanup & artifact_check && wait
 	 	   menu
 	 	   ;;
 	 	4) echo -e "$DIVIDER"
@@ -605,14 +594,18 @@ function debug_menu()  {
 	 esac
 	
 }
+
+# Capture logs from terminal
 printf "\n" | tee -a "$LOG_DIR"/"$LOG"
-printf "Script started on "$DATE"\n" | tee -a "$LOG_DIR"/"$LOG"
+printf "Script started on ""$DATE""\n" | tee -a "$LOG_DIR"/"$LOG"
 printf "\n" | tee -a "$LOG_DIR"/"$LOG"
+
 load_prefs
 check_hash
 menu
+
+# Sanitize logs
 sed -i 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$LOG_DIR"/"$LOG"
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
 echo -e "Script execution completed after $((DIFF/60)) minute(s) and $((DIFF % 60)) seconds"
-
