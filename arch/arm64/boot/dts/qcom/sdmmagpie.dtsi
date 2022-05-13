@@ -460,7 +460,7 @@
 	};
 
 	chosen {
-		bootargs = "rcupdate.rcu_nocbs=0-3 nodebugmon";
+		bootargs = "rcupdate.rcu_nocbs=0-3 nodebugmon cgroup_disable=pressure";
 	};
 
 	soc: soc { };
