@@ -20,7 +20,7 @@ DIVIDER="$blue***********************************************$nocol"
 KERNEL_NAME="Stratosphere"
 VERSION="Kernel"
 RELEASE_MSG="Stratosphere Kernel: Personal Machine Build"
-DEFCONFIG=surya_defconfig
+DEFCONFIG=vendor/surya-perf_defconfig
 # Need not edit these.
 DATE=$(date +"%d-%m-%Y-%I-%M")
 SHORTDATE=$(date +"%d-%m-%Y")
